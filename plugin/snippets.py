@@ -11,18 +11,14 @@ import ctypes
 import sqlite3
 import pyperclip
 
-def getValue(dbName, key):
-    value = {}
+def getValue(dbName, key) -> []:
     conn = sqlite3.connect(dbName)
     cursor = conn.cursor()
 
-    cursor.execute("SELECT value FROM snippets WHERE key=?", (key,))
-    result = cursor.fetchone()
-    if result:
-        value = result[0]
-    else:
-        value = ""
-    conn.close()
+    result = cursor.execute("SELECT key,value FROM snippets WHERE key LIKE concat(?, ? , ?)", ('%', key, '%'))
+    value = []
+    for row in result:
+        value.append(([row[0],row[1]]))
     return value
 
 def saveValue(dbName, key, value):
@@ -53,38 +49,45 @@ class Snippets(FlowLauncher):
     def query(self, query):
         results = []
         try:
-            if len(query.strip()) != 0:
-                if ':' in query.strip():
-                    key, value = query.strip().split(':', 1)
-                    results.append({
-                        "Title": "Save Code Snippet",
-                        "SubTitle": "Key=" + key + ", Value=" + value,
-                        "IcoPath": "assets/snippets.png", 
-                        "ContextData": [key, value],
-                        "JsonRPCAction": {"method": "save", "parameters": [key.strip(), value.strip()], }})
-                else:
-                    value = getValue(self.dbName, query.strip())
-                    if len(value) != 0:
-                        results.append({  
-                            "Title": "⭐ " + query.strip(),
-                            "SubTitle": "[Snippet] Copy to clipboard",
-                            "IcoPath": "assets/snippets.png",
-                            "ContextData": [query.strip(), value],
-                            "JsonRPCAction": {"method": "copy", "parameters": [value], }})
-                    else:
-                        clipboardValue = pyperclip.paste()
-                        displayValue = (clipboardValue[:16] + "...") if len(clipboardValue) > 16 else clipboardValue
-                        if len(clipboardValue) != 0:
-                            results.append({
-                                "Title": "Save from clipboard",
-                                "SubTitle": "Key=" + query.strip() + ", Value=" + displayValue,
-                                "IcoPath": "assets/snippets.png",
-                                "ContextData": [query.strip(), clipboardValue],
-                                "JsonRPCAction": {"method": "save", "parameters": [query.strip(), clipboardValue], }})
+            query = query.strip()
+            if len(query) == 0:
+                return results
 
+            if ':' in query:
+                (key, value) = query.strip().split(':', 1)
+                results.append({
+                    "Title": "Save Code Snippet",
+                    "SubTitle": "Key=" + key + ", Value=" + value,
+                    "IcoPath": "assets/snippets.png",
+                    "ContextData": [key, value],
+                    "JsonRPCAction": {"method": "save", "parameters": [key.strip(), value.strip()], }})
+                return results
+
+            list = getValue(self.dbName, query.strip())
+            if len(list) == 0:
+                clipboard_value = pyperclip.paste()
+                display_value = (clipboard_value[:16] + "...") if len(clipboard_value) > 16 else clipboard_value
+                if len(clipboard_value) != 0:
+                    results.append({
+                        "Title": "Save from clipboard",
+                        "SubTitle": "Key=" + query.strip() + ", Value=" + display_value,
+                        "IcoPath": "assets/snippets.png",
+                        "ContextData": [query.strip(), clipboard_value],
+                        "JsonRPCAction": {"method": "save", "parameters": [query.strip(), clipboard_value], }})
+                return results
+
+            for item in list:
+                key = item[0]
+                text = item[1]
+                results.append({
+                    "Title": "⭐ " + key,
+                    "SubTitle": "[Snippet] Copy to clipboard with value: " + text,
+                    "IcoPath": "assets/snippets.png",
+                    "ContextData": [query.strip(), text],
+                    "JsonRPCAction": {"method": "copy", "parameters": [text], }})
         except:
-            value = sys.exc_info()
-            print('Error opening %s: %s' % (value.filename, value.strerror))
+            exec_info = sys.exc_info()
+            print("Exception: ", exec_info[0], exec_info[1])
             results.append({
                 "Title": "Code Snippets Error",
                 "SubTitle": "Please, Verify and try again",
