@@ -1,6 +1,7 @@
 # Flow.Launcher.Snippets
 
 This Snippets plugin let you save key/value snippets and copy to clipboard copy it from [Flow Launcher](https://www.flowlauncher.com/).
+**For the fork, I enhanced his search capabilities to support module matching**
 
 ## How to use it
 
